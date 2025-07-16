@@ -10,7 +10,11 @@ import java.time.LocalDate
 interface DeliveryRepository : JpaRepository<Delivery, Long> {
     fun findByStatus(status: DeliveryStatus): List<Delivery>
     
+    fun findByDriverId(driverId: Long): List<Delivery>
+    
     fun findByDriverIdAndStatus(driverId: Long, status: DeliveryStatus): List<Delivery>
+    
+    fun findByDeliveryDateBetween(startDate: LocalDate, endDate: LocalDate): List<Delivery>
     
     @Query("""
         SELECT COUNT(d) FROM Delivery d 
