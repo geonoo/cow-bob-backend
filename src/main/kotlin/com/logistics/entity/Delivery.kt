@@ -21,6 +21,9 @@ data class Delivery(
     @Column(nullable = false, precision = 10, scale = 2)
     val price: BigDecimal,
     
+    @Column(nullable = false, precision = 5, scale = 2)
+    val feedTonnage: BigDecimal,
+    
     @Column(nullable = false)
     val deliveryDate: LocalDate,
     
