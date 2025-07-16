@@ -27,28 +27,25 @@ cd cow-bob-backend
 **중요**: 이 프로젝트는 데이터베이스와 환경 설정을 별도의 private 저장소에서 관리합니다.
 
 ```bash
-# Private 저장소 클론 (별도 디렉토리에)
+# Private 저장소 클론 (동일한 상위 디렉토리에)
+cd ..
 git clone https://github.com/YOUR_USERNAME/cow-bob-private.git
+cd cow-bob-backend
 
-# 환경 설정 파일 복사
-cp ../cow-bob-private/backend.env ./.env
-
-# 데이터베이스 파일 복사
-cp -r ../cow-bob-private/data ./
+# 심볼릭 링크 생성
+ln -sf ../cow-bob-private/backend.env .env
+ln -sf ../cow-bob-private/data data
 ```
 
-또는 수동으로 다음 파일들을 생성하세요:
-
-**.env 파일 생성:**
-```env
-DATABASE_URL=jdbc:h2:file:./data/logistics;AUTO_SERVER=TRUE
-DATABASE_USERNAME=sa
-DATABASE_PASSWORD=
-H2_CONSOLE_ENABLED=true
-JPA_DDL_AUTO=update
-JPA_SHOW_SQL=true
-SERVER_PORT=8080
-LOG_LEVEL=DEBUG
+**디렉토리 구조:**
+```
+your-project/
+├── cow-bob-backend/     # 이 저장소
+├── cow-bob-frontend/    # 프론트엔드 저장소
+└── cow-bob-private/     # Private 저장소
+    ├── backend.env
+    ├── frontend.env
+    └── data/
 ```
 
 ### 4. 애플리케이션 실행

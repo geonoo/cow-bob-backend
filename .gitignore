@@ -61,6 +61,7 @@ hs_err_pid*
 
 # H2 Database files (exclude all database files for security)
 data/
+data
 
 # Environment files
 .env
