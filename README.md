@@ -19,11 +19,39 @@
 
 ### 2. 프로젝트 클론
 ```bash
-git clone <repository-url>
+git clone https://github.com/YOUR_USERNAME/cow-bob-backend.git
 cd cow-bob-backend
 ```
 
-### 3. 애플리케이션 실행
+### 3. 🔐 Private 설정 파일 설정
+**중요**: 이 프로젝트는 데이터베이스와 환경 설정을 별도의 private 저장소에서 관리합니다.
+
+```bash
+# Private 저장소 클론 (별도 디렉토리에)
+git clone https://github.com/YOUR_USERNAME/cow-bob-private.git
+
+# 환경 설정 파일 복사
+cp ../cow-bob-private/backend.env ./.env
+
+# 데이터베이스 파일 복사
+cp -r ../cow-bob-private/data ./
+```
+
+또는 수동으로 다음 파일들을 생성하세요:
+
+**.env 파일 생성:**
+```env
+DATABASE_URL=jdbc:h2:file:./data/logistics;AUTO_SERVER=TRUE
+DATABASE_USERNAME=sa
+DATABASE_PASSWORD=
+H2_CONSOLE_ENABLED=true
+JPA_DDL_AUTO=update
+JPA_SHOW_SQL=true
+SERVER_PORT=8080
+LOG_LEVEL=DEBUG
+```
+
+### 4. 애플리케이션 실행
 ```bash
 ./gradlew bootRun
 ```

@@ -59,7 +59,15 @@ Desktop.ini
 # JVM Crash logs
 hs_err_pid*
 
-# H2 Database files (keep data directory but ignore lock files)
-data/*.lock.db
-data/*.trace.db
-data/*.tmp
+# H2 Database files (exclude all database files for security)
+data/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+
+# Private configuration
+application-local.yml
+application-prod.yml
