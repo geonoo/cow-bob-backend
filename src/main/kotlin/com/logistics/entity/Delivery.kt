@@ -22,7 +22,7 @@ data class Delivery(
     val price: BigDecimal,
     
     @Column(nullable = false, precision = 5, scale = 2)
-    val feedTonnage: BigDecimal,
+    val feedTonnage: BigDecimal = BigDecimal.ZERO,
     
     @Column(nullable = false)
     val deliveryDate: LocalDate,

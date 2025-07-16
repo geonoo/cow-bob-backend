@@ -18,13 +18,8 @@ class DriverController(
     fun getAllDrivers(): List<Driver> = driverService.getAllDrivers()
     
     @GetMapping("/{id}")
-    fun getDriverById(@PathVariable id: Long): ResponseEntity<Driver> {
-        val driver = driverService.getDriverById(id)
-        return if (driver != null) {
-            ResponseEntity.ok(driver)
-        } else {
-            ResponseEntity.notFound().build()
-        }
+    fun getDriverById(@PathVariable id: Long): Driver {
+        return driverService.getDriverById(id)
     }
     
     @PostMapping
@@ -34,22 +29,14 @@ class DriverController(
     }
     
     @PutMapping("/{id}")
-    fun updateDriver(@PathVariable id: Long, @RequestBody driver: Driver): ResponseEntity<Driver> {
-        val updatedDriver = driverService.updateDriver(id, driver)
-        return if (updatedDriver != null) {
-            ResponseEntity.ok(updatedDriver)
-        } else {
-            ResponseEntity.notFound().build()
-        }
+    fun updateDriver(@PathVariable id: Long, @RequestBody driver: Driver): Driver {
+        return driverService.updateDriver(id, driver)
     }
     
     @DeleteMapping("/{id}")
     fun deleteDriver(@PathVariable id: Long): ResponseEntity<Void> {
-        return if (driverService.deleteDriver(id)) {
-            ResponseEntity.noContent().build()
-        } else {
-            ResponseEntity.notFound().build()
-        }
+        driverService.deleteDriver(id)
+        return ResponseEntity.noContent().build()
     }
     
     @GetMapping("/active")

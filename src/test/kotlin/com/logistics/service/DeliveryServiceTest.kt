@@ -8,6 +8,7 @@ import com.logistics.repository.DeliveryRepository
 import com.logistics.repository.DriverRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
@@ -111,6 +112,7 @@ class DeliveryServiceTest {
         // Given
         whenever(deliveryRepository.findById(1L)).thenReturn(Optional.of(testDelivery))
         whenever(driverRepository.findById(1L)).thenReturn(Optional.of(testDriver))
+        whenever(driverRepository.findAvailableDriversForDate(any())).thenReturn(listOf(testDriver))
         
         val assignedDelivery = testDelivery.copy(
             driver = testDriver,
@@ -131,24 +133,24 @@ class DeliveryServiceTest {
     }
 
     @Test
-    fun `존재하지 않는 배송 할당 시 null 반환 테스트`() {
+    fun `존재하지 않는 배송 할당 시 ResourceNotFoundException 발생 테스트`() {
         // Given
         whenever(deliveryRepository.findById(999L)).thenReturn(Optional.empty())
 
-        // When
-        val result = deliveryService.assignDeliveryToDriver(999L, 1L)
-
-        // Then
-        assertNull(result)
+        // When & Then
+        assertThrows<com.logistics.exception.ResourceNotFoundException> {
+            deliveryService.assignDeliveryToDriver(999L, 1L)
+        }
         verify(deliveryRepository).findById(999L)
     }
 
     @Test
     fun `배송 완료 처리 테스트`() {
         // Given
-        whenever(deliveryRepository.findById(1L)).thenReturn(Optional.of(testDelivery))
+        val assignedDelivery = testDelivery.copy(status = DeliveryStatus.ASSIGNED)
+        whenever(deliveryRepository.findById(1L)).thenReturn(Optional.of(assignedDelivery))
         
-        val completedDelivery = testDelivery.copy(
+        val completedDelivery = assignedDelivery.copy(
             status = DeliveryStatus.COMPLETED,
             completedAt = java.time.LocalDateTime.now()
         )

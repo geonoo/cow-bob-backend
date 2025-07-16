@@ -136,7 +136,8 @@ class DeliveryControllerTest {
     @Test
     fun `존재하지 않는 배송 조회 시 404 반환 테스트`() {
         // Given
-        whenever(deliveryService.getDeliveryById(999L)).thenReturn(null)
+        whenever(deliveryService.getDeliveryById(999L))
+            .thenThrow(com.logistics.exception.ResourceNotFoundException("ID가 999 인 배송을 찾을 수 없습니다."))
 
         // When & Then
         mockMvc.perform(get("/api/deliveries/999"))

@@ -17,13 +17,8 @@ class DeliveryController(
     fun getAllDeliveries(): List<Delivery> = deliveryService.getAllDeliveries()
     
     @GetMapping("/{id}")
-    fun getDeliveryById(@PathVariable id: Long): ResponseEntity<Delivery> {
-        val delivery = deliveryService.getDeliveryById(id)
-        return if (delivery != null) {
-            ResponseEntity.ok(delivery)
-        } else {
-            ResponseEntity.notFound().build()
-        }
+    fun getDeliveryById(@PathVariable id: Long): Delivery {
+        return deliveryService.getDeliveryById(id)
     }
     
     @PostMapping
@@ -33,22 +28,14 @@ class DeliveryController(
     }
     
     @PutMapping("/{id}")
-    fun updateDelivery(@PathVariable id: Long, @RequestBody delivery: Delivery): ResponseEntity<Delivery> {
-        val updatedDelivery = deliveryService.updateDelivery(id, delivery)
-        return if (updatedDelivery != null) {
-            ResponseEntity.ok(updatedDelivery)
-        } else {
-            ResponseEntity.notFound().build()
-        }
+    fun updateDelivery(@PathVariable id: Long, @RequestBody delivery: Delivery): Delivery {
+        return deliveryService.updateDelivery(id, delivery)
     }
     
     @DeleteMapping("/{id}")
     fun deleteDelivery(@PathVariable id: Long): ResponseEntity<Void> {
-        return if (deliveryService.deleteDelivery(id)) {
-            ResponseEntity.noContent().build()
-        } else {
-            ResponseEntity.notFound().build()
-        }
+        deliveryService.deleteDelivery(id)
+        return ResponseEntity.noContent().build()
     }
     
     @GetMapping("/pending")
@@ -56,7 +43,7 @@ class DeliveryController(
     
     @PostMapping("/{id}/recommend-driver")
     fun recommendDriver(@PathVariable id: Long): ResponseEntity<Map<String, Any>> {
-        val delivery = deliveryService.getDeliveryById(id) ?: return ResponseEntity.notFound().build()
+        val delivery = deliveryService.getDeliveryById(id)
         val recommendedDriver = deliveryService.recommendDriverForDelivery(delivery)
         
         return if (recommendedDriver != null) {
@@ -73,22 +60,12 @@ class DeliveryController(
     }
     
     @PostMapping("/{deliveryId}/assign/{driverId}")
-    fun assignDelivery(@PathVariable deliveryId: Long, @PathVariable driverId: Long): ResponseEntity<Delivery> {
-        val assignedDelivery = deliveryService.assignDeliveryToDriver(deliveryId, driverId)
-        return if (assignedDelivery != null) {
-            ResponseEntity.ok(assignedDelivery)
-        } else {
-            ResponseEntity.badRequest().build()
-        }
+    fun assignDelivery(@PathVariable deliveryId: Long, @PathVariable driverId: Long): Delivery {
+        return deliveryService.assignDeliveryToDriver(deliveryId, driverId)
     }
     
     @PostMapping("/{id}/complete")
-    fun completeDelivery(@PathVariable id: Long): ResponseEntity<Delivery> {
-        val completedDelivery = deliveryService.completeDelivery(id)
-        return if (completedDelivery != null) {
-            ResponseEntity.ok(completedDelivery)
-        } else {
-            ResponseEntity.notFound().build()
-        }
+    fun completeDelivery(@PathVariable id: Long): Delivery {
+        return deliveryService.completeDelivery(id)
     }
 }

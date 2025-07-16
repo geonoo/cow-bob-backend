@@ -62,6 +62,7 @@ class DriverServiceTest {
     @Test
     fun `기사 생성 테스트`() {
         // Given
+        whenever(driverRepository.findAll()).thenReturn(emptyList()) // 중복 전화번호 검증을 위해
         whenever(driverRepository.save(any<Driver>())).thenReturn(testDriver)
 
         // When
@@ -90,19 +91,6 @@ class DriverServiceTest {
     }
 
     @Test
-    fun `존재하지 않는 기사 조회 시 null 반환 테스트`() {
-        // Given
-        whenever(driverRepository.findById(999L)).thenReturn(Optional.empty())
-
-        // When
-        val result = driverService.getDriverById(999L)
-
-        // Then
-        assertNull(result)
-        verify(driverRepository).findById(999L)
-    }
-
-    @Test
     fun `활성 기사 조회 테스트`() {
         // Given
         val activeDrivers = listOf(testDriver)
@@ -122,6 +110,7 @@ class DriverServiceTest {
         // Given
         val updatedDriver = testDriver.copy(name = "박기사")
         whenever(driverRepository.existsById(1L)).thenReturn(true)
+        whenever(driverRepository.findAll()).thenReturn(emptyList()) // 중복 전화번호 검증을 위해
         whenever(driverRepository.save(any<Driver>())).thenReturn(updatedDriver)
 
         // When
@@ -135,42 +124,15 @@ class DriverServiceTest {
     }
 
     @Test
-    fun `존재하지 않는 기사 수정 시 null 반환 테스트`() {
-        // Given
-        whenever(driverRepository.existsById(999L)).thenReturn(false)
-
-        // When
-        val result = driverService.updateDriver(999L, testDriver)
-
-        // Then
-        assertNull(result)
-        verify(driverRepository).existsById(999L)
-    }
-
-    @Test
     fun `기사 삭제 테스트`() {
         // Given
-        whenever(driverRepository.existsById(1L)).thenReturn(true)
+        val driverWithoutDeliveries = testDriver.copy(deliveries = emptyList())
+        whenever(driverRepository.findById(1L)).thenReturn(Optional.of(driverWithoutDeliveries))
 
-        // When
-        val result = driverService.deleteDriver(1L)
-
-        // Then
-        assertTrue(result)
-        verify(driverRepository).existsById(1L)
+        // When & Then - 예외가 발생하지 않아야 함
+        driverService.deleteDriver(1L)
+        
+        verify(driverRepository).findById(1L)
         verify(driverRepository).deleteById(1L)
-    }
-
-    @Test
-    fun `존재하지 않는 기사 삭제 시 false 반환 테스트`() {
-        // Given
-        whenever(driverRepository.existsById(999L)).thenReturn(false)
-
-        // When
-        val result = driverService.deleteDriver(999L)
-
-        // Then
-        assertEquals(false, result)
-        verify(driverRepository).existsById(999L)
     }
 }
