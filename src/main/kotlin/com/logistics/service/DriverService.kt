@@ -86,7 +86,13 @@ class DriverService(
         }
     }
     
-    fun getActiveDrivers(): List<Driver> = driverRepository.findByStatus(DriverStatus.ACTIVE)
+    fun getActiveDrivers(): List<Driver> {
+        return try {
+            driverRepository.findByStatus(DriverStatus.ACTIVE)
+        } catch (e: Exception) {
+            throw DataIntegrityException("활성 기사 조회 중 오류가 발생했습니다: ${e.message}")
+        }
+    }
     
     fun getAvailableDriversForDate(date: LocalDate): List<Driver> = 
         driverRepository.findAvailableDriversForDate(date)

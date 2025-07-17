@@ -54,6 +54,29 @@ class DeliveryService(
         }
     }
     
+    fun createHistoricalDelivery(dto: DeliveryRequestDto): Delivery {
+        try {
+            val driver = dto.driverId?.let { driverRepository.findById(it).orElse(null) }
+            val delivery = Delivery(
+                destination = dto.destination,
+                address = dto.address,
+                price = dto.price,
+                feedTonnage = dto.toBigDecimal(),
+                deliveryDate = dto.deliveryDate,
+                driver = driver,
+                notes = dto.notes,
+                status = DeliveryStatus.COMPLETED // 과거 데이터는 완료 상태로 생성
+            )
+            validateHistoricalDeliveryData(delivery)
+            return deliveryRepository.save(delivery)
+        } catch (e: Exception) {
+            when (e) {
+                is LogisticsException -> throw e
+                else -> throw DataIntegrityException("과거 배송 데이터 생성 중 오류가 발생했습니다: ${e.message}")
+            }
+        }
+    }
+    
     fun updateDelivery(id: Long, dto: DeliveryRequestDto): Delivery {
         if (!deliveryRepository.existsById(id)) {
             throw ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DELIVERY_NOT_FOUND, id.toString()))
@@ -98,6 +121,9 @@ class DeliveryService(
     }
     
     fun getPendingDeliveries(): List<Delivery> = deliveryRepository.findByStatus(DeliveryStatus.PENDING)
+    
+    fun getAssignedDeliveries(): List<Delivery> = 
+        deliveryRepository.findByStatusIn(listOf(DeliveryStatus.ASSIGNED, DeliveryStatus.IN_PROGRESS))
     
     /**
      * 공정한 배차를 위한 추천 알고리즘
@@ -194,6 +220,26 @@ class DeliveryService(
         return deliveryRepository.save(updatedDelivery)
     }
     
+    fun cancelAssignment(deliveryId: Long): Delivery {
+        val delivery = deliveryRepository.findById(deliveryId).orElseThrow {
+            ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DELIVERY_NOT_FOUND, deliveryId.toString()))
+        }
+        
+        // 배차 취소 가능 상태 검증
+        if (delivery.status != DeliveryStatus.ASSIGNED && delivery.status != DeliveryStatus.IN_PROGRESS) {
+            throw BusinessRuleViolationException("배차 취소는 배차 완료 또는 진행 중인 배송만 가능합니다.")
+        }
+        
+        val updatedDelivery = delivery.copy(
+            driver = null,
+            status = DeliveryStatus.PENDING,
+            assignedAt = null,
+            startedAt = null
+        )
+        
+        return deliveryRepository.save(updatedDelivery)
+    }
+    
     /**
      * 기사별 월매출표 조회
      */
@@ -243,6 +289,29 @@ class DeliveryService(
         if (delivery.deliveryDate.isBefore(LocalDate.now())) {
             throw InvalidRequestException(ErrorMessage.DELIVERY_DATE_FUTURE.message)
         }
+    }
+    
+    /**
+     * 과거 배송 데이터 검증 (날짜 검증 제외)
+     */
+    private fun validateHistoricalDeliveryData(delivery: Delivery) {
+        if (delivery.destination.isBlank()) {
+            throw InvalidRequestException(ErrorMessage.DESTINATION_REQUIRED.message)
+        }
+        
+        if (delivery.address.isBlank()) {
+            throw InvalidRequestException(ErrorMessage.ADDRESS_REQUIRED.message)
+        }
+        
+        if (delivery.price.signum() <= 0) {
+            throw InvalidRequestException(ErrorMessage.PRICE_POSITIVE.message)
+        }
+        
+        if (delivery.feedTonnage.signum() <= 0) {
+            throw InvalidRequestException(ErrorMessage.FEED_TONNAGE_POSITIVE.message)
+        }
+        
+        // 과거 데이터는 날짜 검증을 하지 않음
     }
     
     /**

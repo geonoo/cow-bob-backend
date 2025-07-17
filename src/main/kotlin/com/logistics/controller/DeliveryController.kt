@@ -34,6 +34,12 @@ class DeliveryController(
         return ResponseEntity.status(HttpStatus.CREATED).body(DeliveryResponseDto.fromEntity(created))
     }
     
+    @PostMapping("/history")
+    fun createHistoricalDelivery(@RequestBody dto: DeliveryRequestDto): ResponseEntity<DeliveryResponseDto> {
+        val created = deliveryService.createHistoricalDelivery(dto)
+        return ResponseEntity.status(HttpStatus.CREATED).body(DeliveryResponseDto.fromEntity(created))
+    }
+    
     @PutMapping("/{id}")
     fun updateDelivery(@PathVariable id: Long, @RequestBody dto: DeliveryRequestDto): DeliveryResponseDto {
         return DeliveryResponseDto.fromEntity(deliveryService.updateDelivery(id, dto))
@@ -47,6 +53,9 @@ class DeliveryController(
     
     @GetMapping("/pending")
     fun getPendingDeliveries(): List<Delivery> = deliveryService.getPendingDeliveries()
+    
+    @GetMapping("/assigned")
+    fun getAssignedDeliveries(): List<Delivery> = deliveryService.getAssignedDeliveries()
     
     @PostMapping("/{id}/recommend-driver")
     fun recommendDriverForDelivery(@PathVariable id: Long): ResponseEntity<Map<String, Any?>> {
@@ -77,6 +86,11 @@ class DeliveryController(
     @PostMapping("/{id}/complete")
     fun completeDelivery(@PathVariable id: Long): DeliveryResponseDto {
         return DeliveryResponseDto.fromEntity(deliveryService.completeDelivery(id))
+    }
+    
+    @PostMapping("/{id}/cancel-assignment")
+    fun cancelAssignment(@PathVariable id: Long): DeliveryResponseDto {
+        return DeliveryResponseDto.fromEntity(deliveryService.cancelAssignment(id))
     }
     
     /**

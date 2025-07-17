@@ -8,7 +8,7 @@ import org.springframework.cache.annotation.CacheEvict
 import java.time.LocalDate
 
 interface DriverRepository : JpaRepository<Driver, Long>, DriverRepositoryCustom {
-    @Cacheable(value = ["drivers"], key = "#status.name")
+    // @Cacheable(value = ["drivers"], key = "#status.name")
     fun findByStatus(status: DriverStatus): List<Driver>
     
     @CacheEvict(value = ["drivers"], allEntries = true)
