@@ -7,6 +7,7 @@ import com.logistics.entity.DriverStatus
 import com.logistics.exception.*
 import com.logistics.repository.DeliveryRepository
 import com.logistics.repository.DriverRepository
+import com.logistics.dto.DeliveryRequestDto
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -34,6 +35,7 @@ class DeliveryServiceExceptionTest {
     @InjectMocks
     private lateinit var deliveryService: DeliveryService
 
+    private lateinit var validDeliveryDto: DeliveryRequestDto
     private lateinit var validDelivery: Delivery
     private lateinit var activeDriver: Driver
     private lateinit var inactiveDriver: Driver
@@ -60,6 +62,14 @@ class DeliveryServiceExceptionTest {
             tonnage = 3.0,
             status = DriverStatus.INACTIVE,
             joinDate = LocalDate.now().minusMonths(3)
+        )
+
+        validDeliveryDto = DeliveryRequestDto(
+            destination = "서울농장",
+            address = "서울시 강남구 테헤란로 123",
+            price = BigDecimal("500000"),
+            feedTonnage = 3.5,
+            deliveryDate = LocalDate.now().plusDays(1)
         )
 
         validDelivery = Delivery(
@@ -94,7 +104,7 @@ class DeliveryServiceExceptionTest {
 
         // When & Then
         val exception = assertThrows<ResourceNotFoundException> {
-            deliveryService.updateDelivery(999L, validDelivery)
+            deliveryService.updateDelivery(999L, validDeliveryDto)
         }
         assertEquals("ID가 999 인 배송을 찾을 수 없습니다.", exception.message)
     }
@@ -141,11 +151,11 @@ class DeliveryServiceExceptionTest {
     @Test
     fun `빈 배송지로 배송 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDelivery = validDelivery.copy(destination = "")
+        val invalidDeliveryDto = validDeliveryDto.copy(destination = "")
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            deliveryService.createDelivery(invalidDelivery)
+            deliveryService.createDelivery(invalidDeliveryDto)
         }
         assertEquals("배송지는 필수 입력 항목입니다.", exception.message)
     }
@@ -153,11 +163,11 @@ class DeliveryServiceExceptionTest {
     @Test
     fun `빈 주소로 배송 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDelivery = validDelivery.copy(address = "")
+        val invalidDeliveryDto = validDeliveryDto.copy(address = "")
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            deliveryService.createDelivery(invalidDelivery)
+            deliveryService.createDelivery(invalidDeliveryDto)
         }
         assertEquals("주소는 필수 입력 항목입니다.", exception.message)
     }
@@ -165,11 +175,11 @@ class DeliveryServiceExceptionTest {
     @Test
     fun `음수 가격으로 배송 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDelivery = validDelivery.copy(price = BigDecimal("-1000"))
+        val invalidDeliveryDto = validDeliveryDto.copy(price = BigDecimal("-1000"))
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            deliveryService.createDelivery(invalidDelivery)
+            deliveryService.createDelivery(invalidDeliveryDto)
         }
         assertEquals("가격은 0보다 커야 합니다.", exception.message)
     }
@@ -177,11 +187,11 @@ class DeliveryServiceExceptionTest {
     @Test
     fun `음수 사료량으로 배송 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDelivery = validDelivery.copy(feedTonnage = BigDecimal("-1.0"))
+        val invalidDeliveryDto = validDeliveryDto.copy(feedTonnage = -1.0)
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            deliveryService.createDelivery(invalidDelivery)
+            deliveryService.createDelivery(invalidDeliveryDto)
         }
         assertEquals("사료량은 0보다 커야 합니다.", exception.message)
     }
@@ -189,11 +199,11 @@ class DeliveryServiceExceptionTest {
     @Test
     fun `과거 날짜로 배송 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDelivery = validDelivery.copy(deliveryDate = LocalDate.now().minusDays(1))
+        val invalidDeliveryDto = validDeliveryDto.copy(deliveryDate = LocalDate.now().minusDays(1))
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            deliveryService.createDelivery(invalidDelivery)
+            deliveryService.createDelivery(invalidDeliveryDto)
         }
         assertEquals("배송일은 오늘 이후여야 합니다.", exception.message)
     }
@@ -301,7 +311,7 @@ class DeliveryServiceExceptionTest {
 
         // When & Then
         val exception = assertThrows<DataIntegrityException> {
-            deliveryService.createDelivery(validDelivery)
+            deliveryService.createDelivery(validDeliveryDto)
         }
         assertTrue(exception.message!!.contains("배송 생성 중 오류가 발생했습니다"))
     }

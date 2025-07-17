@@ -38,6 +38,10 @@ data class Delivery(
     @Column(nullable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
     
+    val assignedAt: LocalDateTime? = null,
+    
+    val startedAt: LocalDateTime? = null,
+    
     val completedAt: LocalDateTime? = null,
     
     @Column(length = 1000)

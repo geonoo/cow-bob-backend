@@ -5,22 +5,53 @@ import com.logistics.entity.VacationStatus
 import com.logistics.repository.VacationRepository
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import com.logistics.dto.VacationRequestDto
+import com.logistics.repository.DriverRepository
+import com.logistics.exception.ResourceNotFoundException
 
 @Service
 class VacationService(
-    private val vacationRepository: VacationRepository
+    private val vacationRepository: VacationRepository,
+    private val driverRepository: DriverRepository
 ) {
     
     fun getAllVacations(): List<Vacation> = vacationRepository.findAll()
     
     fun getVacationById(id: Long): Vacation? = vacationRepository.findById(id).orElse(null)
     
-    fun createVacation(vacation: Vacation): Vacation = vacationRepository.save(vacation)
+    fun createVacation(dto: VacationRequestDto): Vacation {
+        val driver = driverRepository.findById(dto.driverId).orElseThrow {
+            ResourceNotFoundException("ID가 ${dto.driverId} 인 기사를 찾을 수 없습니다.")
+        }
+        
+        val vacation = Vacation(
+            driver = driver,
+            startDate = dto.startDate,
+            endDate = dto.endDate,
+            reason = dto.reason
+        )
+        
+        return vacationRepository.save(vacation)
+    }
     
-    fun updateVacation(id: Long, updatedVacation: Vacation): Vacation? {
-        return if (vacationRepository.existsById(id)) {
-            vacationRepository.save(updatedVacation.copy(id = id))
-        } else null
+    fun updateVacation(id: Long, dto: VacationRequestDto): Vacation? {
+        if (!vacationRepository.existsById(id)) {
+            return null
+        }
+        
+        val driver = driverRepository.findById(dto.driverId).orElseThrow {
+            ResourceNotFoundException("ID가 ${dto.driverId} 인 기사를 찾을 수 없습니다.")
+        }
+        
+        val vacation = Vacation(
+            id = id,
+            driver = driver,
+            startDate = dto.startDate,
+            endDate = dto.endDate,
+            reason = dto.reason
+        )
+        
+        return vacationRepository.save(vacation)
     }
     
     fun deleteVacation(id: Long): Boolean {

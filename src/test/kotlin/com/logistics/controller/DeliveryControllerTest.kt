@@ -5,6 +5,7 @@ import com.logistics.entity.DeliveryStatus
 import com.logistics.entity.Driver
 import com.logistics.entity.DriverStatus
 import com.logistics.service.DeliveryService
+import com.logistics.dto.DeliveryRequestDto
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -32,6 +33,7 @@ class DeliveryControllerTest {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
+    private lateinit var testDeliveryDto: DeliveryRequestDto
     private lateinit var testDelivery: Delivery
     private lateinit var testDriver: Driver
 
@@ -46,6 +48,14 @@ class DeliveryControllerTest {
             tonnage = 5.0,
             status = DriverStatus.ACTIVE,
             joinDate = LocalDate.now().minusMonths(6)
+        )
+
+        testDeliveryDto = DeliveryRequestDto(
+            destination = "서울농장",
+            address = "서울시 강남구 테헤란로 123",
+            price = BigDecimal("500000"),
+            feedTonnage = 3.5,
+            deliveryDate = LocalDate.now().plusDays(1)
         )
 
         testDelivery = Delivery(
@@ -77,9 +87,9 @@ class DeliveryControllerTest {
     @Test
     fun `배송 생성 API 테스트`() {
         // Given
-        whenever(deliveryService.createDelivery(any<Delivery>())).thenReturn(testDelivery)
+        whenever(deliveryService.createDelivery(any())).thenReturn(testDelivery)
 
-        val deliveryJson = objectMapper.writeValueAsString(testDelivery)
+        val deliveryJson = objectMapper.writeValueAsString(testDeliveryDto)
 
         // When & Then
         mockMvc.perform(post("/api/deliveries")
@@ -88,6 +98,31 @@ class DeliveryControllerTest {
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.destination").value("서울농장"))
             .andExpect(jsonPath("$.feedTonnage").value(3.5))
+    }
+
+    @Test
+    fun `배송 수정 API 테스트`() {
+        // Given
+        whenever(deliveryService.updateDelivery(any(), any())).thenReturn(testDelivery)
+
+        val deliveryJson = objectMapper.writeValueAsString(testDeliveryDto)
+
+        // When & Then
+        mockMvc.perform(put("/api/deliveries/1")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(deliveryJson))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.destination").value("서울농장"))
+    }
+
+    @Test
+    fun `배송 삭제 API 테스트`() {
+        // Given
+        // deleteDelivery는 void를 반환하므로 별도 설정 불필요
+
+        // When & Then
+        mockMvc.perform(delete("/api/deliveries/1"))
+            .andExpect(status().isNoContent)
     }
 
     @Test
@@ -142,5 +177,11 @@ class DeliveryControllerTest {
         // When & Then
         mockMvc.perform(get("/api/deliveries/999"))
             .andExpect(status().isNotFound)
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.error").value("Resource Not Found"))
+            .andExpect(jsonPath("$.message").value("ID가 999 인 배송을 찾을 수 없습니다."))
+            .andExpect(jsonPath("$.timestamp").exists())
+            .andExpect(jsonPath("$.path").exists())
     }
 }

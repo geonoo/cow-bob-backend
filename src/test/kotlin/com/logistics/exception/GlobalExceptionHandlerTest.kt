@@ -51,9 +51,9 @@ class GlobalExceptionHandlerTest {
 
         // When & Then
         mockMvc.perform(delete("/api/deliveries/1"))
-            .andExpect(status().isBadRequest)
+            .andExpect(status().isConflict)
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.status").value(409))
             .andExpect(jsonPath("$.error").value("Business Rule Violation"))
             .andExpect(jsonPath("$.message").value("진행 중인 배송은 삭제할 수 없습니다."))
             .andExpect(jsonPath("$.timestamp").exists())
@@ -126,9 +126,9 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(post("/api/deliveries")
             .contentType(MediaType.APPLICATION_JSON)
             .content(deliveryJson))
-            .andExpect(status().isConflict)
+            .andExpect(status().isInternalServerError)
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.status").value(500))
             .andExpect(jsonPath("$.error").value("Data Integrity Error"))
             .andExpect(jsonPath("$.message").value("데이터 무결성 오류가 발생했습니다."))
             .andExpect(jsonPath("$.timestamp").exists())

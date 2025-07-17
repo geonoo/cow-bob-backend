@@ -7,8 +7,16 @@ import com.logistics.entity.DriverStatus
 import com.logistics.exception.*
 import com.logistics.repository.DeliveryRepository
 import com.logistics.repository.DriverRepository
+import com.logistics.dto.DeliveryRequestDto
+import com.logistics.dto.DriverRevenueDto
+import com.logistics.dto.DriverRevenueRequestDto
+import com.logistics.constant.ErrorMessage
+import com.logistics.constant.MessageUtils
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import java.time.YearMonth
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 @Service
 class DeliveryService(
@@ -20,13 +28,22 @@ class DeliveryService(
     
     fun getDeliveryById(id: Long): Delivery {
         return deliveryRepository.findById(id).orElseThrow {
-            ResourceNotFoundException("ID가 $id 인 배송을 찾을 수 없습니다.")
+            ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DELIVERY_NOT_FOUND, id.toString()))
         }
     }
     
-    fun createDelivery(delivery: Delivery): Delivery {
+    fun createDelivery(dto: DeliveryRequestDto): Delivery {
         try {
-            // 비즈니스 규칙 검증
+            val driver = dto.driverId?.let { driverRepository.findById(it).orElse(null) }
+            val delivery = Delivery(
+                destination = dto.destination,
+                address = dto.address,
+                price = dto.price,
+                feedTonnage = dto.toBigDecimal(), // Double을 BigDecimal로 변환
+                deliveryDate = dto.deliveryDate,
+                driver = driver,
+                notes = dto.notes
+            )
             validateDeliveryData(delivery)
             return deliveryRepository.save(delivery)
         } catch (e: Exception) {
@@ -37,14 +54,24 @@ class DeliveryService(
         }
     }
     
-    fun updateDelivery(id: Long, updatedDelivery: Delivery): Delivery {
+    fun updateDelivery(id: Long, dto: DeliveryRequestDto): Delivery {
         if (!deliveryRepository.existsById(id)) {
-            throw ResourceNotFoundException("ID가 $id 인 배송을 찾을 수 없습니다.")
+            throw ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DELIVERY_NOT_FOUND, id.toString()))
         }
-        
         try {
-            validateDeliveryData(updatedDelivery)
-            return deliveryRepository.save(updatedDelivery.copy(id = id))
+            val driver = dto.driverId?.let { driverRepository.findById(it).orElse(null) }
+            val delivery = Delivery(
+                id = id,
+                destination = dto.destination,
+                address = dto.address,
+                price = dto.price,
+                feedTonnage = dto.toBigDecimal(), // Double을 BigDecimal로 변환
+                deliveryDate = dto.deliveryDate,
+                driver = driver,
+                notes = dto.notes
+            )
+            validateDeliveryData(delivery)
+            return deliveryRepository.save(delivery)
         } catch (e: Exception) {
             when (e) {
                 is LogisticsException -> throw e
@@ -55,12 +82,12 @@ class DeliveryService(
     
     fun deleteDelivery(id: Long) {
         val delivery = deliveryRepository.findById(id).orElseThrow {
-            ResourceNotFoundException("ID가 $id 인 배송을 찾을 수 없습니다.")
+            ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DELIVERY_NOT_FOUND, id.toString()))
         }
         
         // 배송 상태 확인 - 진행 중인 배송은 삭제 불가
         if (delivery.status == DeliveryStatus.IN_PROGRESS) {
-            throw BusinessRuleViolationException("진행 중인 배송은 삭제할 수 없습니다.")
+            throw BusinessRuleViolationException(ErrorMessage.DELIVERY_IN_PROGRESS_DELETE.message)
         }
         
         try {
@@ -75,77 +102,121 @@ class DeliveryService(
     /**
      * 공정한 배차를 위한 추천 알고리즘
      * 1. 휴가 중인 기사 제외
-     * 2. 최근 배송 횟수가 적은 기사 우선
-     * 3. 같은 지역 반복 배송 방지
+     * 2 최근 배송 횟수가 적은 기사 우선
+     * 3은 지역 반복 배송 방지
      */
-    fun recommendDriverForDelivery(delivery: Delivery): Driver? {
-        val availableDrivers = driverRepository.findAvailableDriversForDate(delivery.deliveryDate)
-        
-        if (availableDrivers.isEmpty()) return null
-        
-        // 각 기사별 점수 계산 (낮을수록 우선순위 높음)
-        val driverScores = availableDrivers.map { driver ->
-            val totalDeliveries = driver.deliveries.size
-            val recentDeliveries = driver.deliveries.count { 
-                it.deliveryDate.isAfter(LocalDate.now().minusDays(30)) 
-            }
-            val sameDestinationCount = deliveryRepository.countRecentDeliveriesForDriverAndDestination(
-                driver.id, delivery.destination, LocalDate.now().minusDays(30)
-            )
-            
-            // 점수 계산: 총 배송 + (최근 배송 * 2) + (같은 지역 배송 * 5)
-            val score = totalDeliveries + (recentDeliveries * 2) + (sameDestinationCount * 5).toInt()
-            
-            driver to score
+    fun recommendDriverForDelivery(deliveryId: Long): Driver? {
+        val delivery = deliveryRepository.findById(deliveryId).orElseThrow {
+            ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DELIVERY_NOT_FOUND, deliveryId.toString()))
         }
         
-        // 점수가 가장 낮은 기사 선택
-        return driverScores.minByOrNull { it.second }?.first
+        // 대기 상태가 아닌 배송은 추천 불가
+        if (delivery.status != DeliveryStatus.PENDING) {
+            throw BusinessRuleViolationException(ErrorMessage.DELIVERY_ALREADY_PROCESSED.message)
+        }
+        
+        val availableDrivers = driverRepository.findAvailableDriversForDate(delivery.deliveryDate)
+            .filter { it.status == DriverStatus.ACTIVE }
+            .filter { it.tonnage >= delivery.feedTonnage.toDouble() }
+        
+        if (availableDrivers.isEmpty()) {
+            return null
+        }
+        
+        // 최근 배송 횟수가 적은 기사 우선 선택
+        return availableDrivers.minByOrNull { driver ->
+            val recentDeliveries = deliveryRepository.findDeliveriesByDriverAndDateRange(
+                driver.id,
+                LocalDate.now().minusDays(30),
+                LocalDate.now()
+            )
+            recentDeliveries.size
+        }
     }
     
     fun assignDeliveryToDriver(deliveryId: Long, driverId: Long): Delivery {
         val delivery = deliveryRepository.findById(deliveryId).orElseThrow {
-            ResourceNotFoundException("ID가 $deliveryId 인 배송을 찾을 수 없습니다.")
+            ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DELIVERY_NOT_FOUND, deliveryId.toString()))
         }
         
         val driver = driverRepository.findById(driverId).orElseThrow {
-            ResourceNotFoundException("ID가 $driverId 인 기사를 찾을 수 없습니다.")
+            ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DRIVER_NOT_FOUND, driverId.toString()))
         }
         
-        // 배차 가능 여부 검증
         validateAssignment(delivery, driver)
         
-        try {
-            val updatedDelivery = delivery.copy(
-                driver = driver,
-                status = DeliveryStatus.ASSIGNED
-            )
-            
-            return deliveryRepository.save(updatedDelivery)
+        val updatedDelivery = delivery.copy(
+            driver = driver,
+            status = DeliveryStatus.ASSIGNED,
+            assignedAt = java.time.LocalDateTime.now()
+        )
+        
+        return try {
+            deliveryRepository.save(updatedDelivery)
         } catch (e: Exception) {
-            throw AssignmentException("배차 처리 중 오류가 발생했습니다: ${e.message}")
+            throw AssignmentException(MessageUtils.formatMessage(ErrorMessage.ASSIGNMENT_ERROR, e.message ?: "알 수 없는 오류"))
         }
+    }
+    
+    fun startDelivery(deliveryId: Long): Delivery {
+        val delivery = deliveryRepository.findById(deliveryId).orElseThrow {
+            ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DELIVERY_NOT_FOUND, deliveryId.toString()))
+        }
+        
+        // 배정된 배송만 시작 가능
+        if (delivery.status != DeliveryStatus.ASSIGNED) {
+            throw BusinessRuleViolationException(ErrorMessage.DELIVERY_NOT_ASSIGNED.message)
+        }
+        
+        val updatedDelivery = delivery.copy(
+            status = DeliveryStatus.IN_PROGRESS,
+            startedAt = java.time.LocalDateTime.now()
+        )
+        
+        return deliveryRepository.save(updatedDelivery)
     }
     
     fun completeDelivery(deliveryId: Long): Delivery {
         val delivery = deliveryRepository.findById(deliveryId).orElseThrow {
-            ResourceNotFoundException("ID가 $deliveryId 인 배송을 찾을 수 없습니다.")
+            ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DELIVERY_NOT_FOUND, deliveryId.toString()))
         }
         
         // 완료 가능 상태 검증
         if (delivery.status != DeliveryStatus.ASSIGNED && delivery.status != DeliveryStatus.IN_PROGRESS) {
-            throw BusinessRuleViolationException("배정되지 않은 배송은 완료할 수 없습니다.")
+            throw BusinessRuleViolationException(ErrorMessage.DELIVERY_NOT_ASSIGNED.message)
         }
         
-        try {
-            val updatedDelivery = delivery.copy(
-                status = DeliveryStatus.COMPLETED,
-                completedAt = java.time.LocalDateTime.now()
-            )
+        val updatedDelivery = delivery.copy(
+            status = DeliveryStatus.COMPLETED,
+            completedAt = java.time.LocalDateTime.now()
+        )
+        
+        return deliveryRepository.save(updatedDelivery)
+    }
+    
+    /**
+     * 기사별 월매출표 조회
+     */
+    fun getDriverRevenue(request: DriverRevenueRequestDto): List<DriverRevenueDto> {
+        val yearMonth = request.yearMonth
+        
+        return if (request.driverId != null) {
+            // 특정 기사의 월매출표
+            val driver = driverRepository.findById(request.driverId).orElseThrow {
+                ResourceNotFoundException(MessageUtils.formatMessage(ErrorMessage.DRIVER_NOT_FOUND, request.driverId.toString()))
+            }
             
-            return deliveryRepository.save(updatedDelivery)
-        } catch (e: Exception) {
-            throw DataIntegrityException("배송 완료 처리 중 오류가 발생했습니다: ${e.message}")
+            val completedDeliveries = deliveryRepository.findCompletedDeliveriesByDriverAndYearMonth(request.driverId, yearMonth)
+            listOf(calculateDriverRevenue(driver, yearMonth, completedDeliveries))
+        } else {
+            // 모든 기사의 월매출표
+            val allDrivers = driverRepository.findAll()
+            val allCompletedDeliveries = deliveryRepository.findCompletedDeliveriesByYearMonth(yearMonth)
+            
+            allDrivers.map { driver ->
+                val driverDeliveries = allCompletedDeliveries.filter { it.driver?.id == driver.id }
+                calculateDriverRevenue(driver, yearMonth, driverDeliveries)
+            }
         }
     }
     
@@ -154,23 +225,23 @@ class DeliveryService(
      */
     private fun validateDeliveryData(delivery: Delivery) {
         if (delivery.destination.isBlank()) {
-            throw InvalidRequestException("배송지는 필수 입력 항목입니다.")
+            throw InvalidRequestException(ErrorMessage.DESTINATION_REQUIRED.message)
         }
         
         if (delivery.address.isBlank()) {
-            throw InvalidRequestException("주소는 필수 입력 항목입니다.")
+            throw InvalidRequestException(ErrorMessage.ADDRESS_REQUIRED.message)
         }
         
         if (delivery.price.signum() <= 0) {
-            throw InvalidRequestException("가격은 0보다 커야 합니다.")
+            throw InvalidRequestException(ErrorMessage.PRICE_POSITIVE.message)
         }
         
         if (delivery.feedTonnage.signum() <= 0) {
-            throw InvalidRequestException("사료량은 0보다 커야 합니다.")
+            throw InvalidRequestException(ErrorMessage.FEED_TONNAGE_POSITIVE.message)
         }
         
         if (delivery.deliveryDate.isBefore(LocalDate.now())) {
-            throw InvalidRequestException("배송일은 오늘 이후여야 합니다.")
+            throw InvalidRequestException(ErrorMessage.DELIVERY_DATE_FUTURE.message)
         }
     }
     
@@ -180,23 +251,51 @@ class DeliveryService(
     private fun validateAssignment(delivery: Delivery, driver: Driver) {
         // 이미 배정된 배송인지 확인
         if (delivery.status != DeliveryStatus.PENDING) {
-            throw BusinessRuleViolationException("이미 처리된 배송입니다.")
+            throw BusinessRuleViolationException(ErrorMessage.DELIVERY_ALREADY_PROCESSED.message)
         }
         
         // 기사 상태 확인
         if (driver.status != DriverStatus.ACTIVE) {
-            throw BusinessRuleViolationException("활성 상태가 아닌 기사에게는 배차할 수 없습니다.")
+            throw BusinessRuleViolationException(ErrorMessage.DRIVER_NOT_ACTIVE.message)
         }
         
         // 기사의 차량 톤수와 사료량 비교
         if (driver.tonnage < delivery.feedTonnage.toDouble()) {
-            throw BusinessRuleViolationException("기사의 차량 톤수(${driver.tonnage}톤)가 사료량(${delivery.feedTonnage}톤)보다 작습니다.")
+            val params = mapOf(
+                "driverTonnage" to driver.tonnage.toString(),
+                "feedTonnage" to delivery.feedTonnage.toString()
+            )
+            throw BusinessRuleViolationException(MessageUtils.formatMessage(ErrorMessage.DRIVER_TONNAGE_INSUFFICIENT, params))
         }
         
         // 휴가 중인지 확인
         val availableDrivers = driverRepository.findAvailableDriversForDate(delivery.deliveryDate)
         if (!availableDrivers.contains(driver)) {
-            throw BusinessRuleViolationException("해당 날짜에 기사가 사용 가능하지 않습니다.")
+            throw BusinessRuleViolationException(ErrorMessage.DRIVER_NOT_AVAILABLE.message)
         }
+    }
+    
+    /**
+     * 기사별 매출 계산
+     */
+    private fun calculateDriverRevenue(driver: Driver, yearMonth: YearMonth, deliveries: List<Delivery>): DriverRevenueDto {
+        val totalDeliveries = deliveries.size
+        val totalRevenue = deliveries.sumOf { it.price }
+        val totalTonnage = deliveries.sumOf { it.feedTonnage }
+        val averageRevenuePerDelivery = if (totalDeliveries > 0) {
+            totalRevenue.divide(BigDecimal(totalDeliveries),2, RoundingMode.HALF_UP)
+        } else {
+            BigDecimal.ZERO
+        }
+        
+        return DriverRevenueDto(
+            driverId = driver.id,
+            driverName = driver.name,
+            yearMonth = yearMonth,
+            totalDeliveries = totalDeliveries,
+            totalRevenue = totalRevenue,
+            totalTonnage = totalTonnage,
+            averageRevenuePerDelivery = averageRevenuePerDelivery
+        )
     }
 }

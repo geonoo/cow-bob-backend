@@ -4,8 +4,13 @@ import com.logistics.entity.Driver
 import com.logistics.entity.DriverStatus
 import com.logistics.exception.*
 import com.logistics.repository.DriverRepository
+import com.logistics.dto.DriverRequestDto
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import com.logistics.constant.ErrorMessage
+import com.logistics.constant.MessageUtils
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
 
 @Service
 class DriverService(
@@ -19,8 +24,15 @@ class DriverService(
         }
     }
     
-    fun createDriver(driver: Driver): Driver {
+    fun createDriver(dto: DriverRequestDto): Driver {
         try {
+            val driver = Driver(
+                name = dto.name,
+                phoneNumber = dto.phoneNumber,
+                vehicleNumber = dto.vehicleNumber,
+                vehicleType = dto.vehicleType,
+                tonnage = dto.tonnage
+            )
             validateDriverData(driver)
             validateUniquePhoneNumber(driver.phoneNumber)
             return driverRepository.save(driver)
@@ -32,15 +44,23 @@ class DriverService(
         }
     }
     
-    fun updateDriver(id: Long, updatedDriver: Driver): Driver {
+    fun updateDriver(id: Long, dto: DriverRequestDto): Driver {
         if (!driverRepository.existsById(id)) {
             throw ResourceNotFoundException("ID가 $id 인 기사를 찾을 수 없습니다.")
         }
         
         try {
-            validateDriverData(updatedDriver)
-            validateUniquePhoneNumber(updatedDriver.phoneNumber, id)
-            return driverRepository.save(updatedDriver.copy(id = id))
+            val driver = Driver(
+                id = id,
+                name = dto.name,
+                phoneNumber = dto.phoneNumber,
+                vehicleNumber = dto.vehicleNumber,
+                vehicleType = dto.vehicleType,
+                tonnage = dto.tonnage
+            )
+            validateDriverData(driver)
+            validateUniquePhoneNumber(driver.phoneNumber, id)
+            return driverRepository.save(driver)
         } catch (e: Exception) {
             when (e) {
                 is LogisticsException -> throw e

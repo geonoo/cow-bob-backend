@@ -4,21 +4,31 @@ import com.logistics.entity.Delivery
 import com.logistics.entity.DeliveryStatus
 import com.logistics.entity.Driver
 import com.logistics.entity.DriverStatus
+import com.logistics.config.QuerydslConfig
+import com.querydsl.jpa.impl.JPAQueryFactory
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Import
+import jakarta.persistence.EntityManager
 import java.math.BigDecimal
 import java.time.LocalDate
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.springframework.transaction.annotation.Transactional
 
-@DataJpaTest
+@SpringBootTest
+@Import(QuerydslConfig::class)
+@Transactional
 class DeliveryRepositoryTest {
 
     @Autowired
-    private lateinit var entityManager: TestEntityManager
+    private lateinit var entityManager: EntityManager
 
     @Autowired
     private lateinit var deliveryRepository: DeliveryRepository
@@ -41,7 +51,9 @@ class DeliveryRepositoryTest {
             joinDate = LocalDate.now().minusMonths(6)
         )
         
-        testDriver = entityManager.persistAndFlush(testDriver)
+        entityManager.persist(testDriver)
+        entityManager.flush()
+        testDriver = testDriver
 
         testDelivery = Delivery(
             destination = "서울농장",
@@ -63,8 +75,9 @@ class DeliveryRepositoryTest {
             status = DeliveryStatus.COMPLETED
         )
         
-        entityManager.persistAndFlush(pendingDelivery)
-        entityManager.persistAndFlush(completedDelivery)
+        entityManager.persist(pendingDelivery)
+        entityManager.persist(completedDelivery)
+        entityManager.flush()
 
         // When
         val pendingDeliveries = deliveryRepository.findByStatus(DeliveryStatus.PENDING)
@@ -83,8 +96,9 @@ class DeliveryRepositoryTest {
         val delivery1 = testDelivery.copy(destination = "서울농장")
         val delivery2 = testDelivery.copy(destination = "인천농장")
         
-        entityManager.persistAndFlush(delivery1)
-        entityManager.persistAndFlush(delivery2)
+        entityManager.persist(delivery1)
+        entityManager.persist(delivery2)
+        entityManager.flush()
 
         // When
         val driverDeliveries = deliveryRepository.findByDriverId(testDriver.id)
@@ -108,8 +122,9 @@ class DeliveryRepositoryTest {
             deliveryDate = dayAfterTomorrow
         )
         
-        entityManager.persistAndFlush(delivery1)
-        entityManager.persistAndFlush(delivery2)
+        entityManager.persist(delivery1)
+        entityManager.persist(delivery2)
+        entityManager.flush()
 
         // When
         val deliveriesInRange = deliveryRepository.findByDeliveryDateBetween(tomorrow, dayAfterTomorrow)

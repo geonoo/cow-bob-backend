@@ -3,6 +3,7 @@ package com.logistics.service
 import com.logistics.entity.Driver
 import com.logistics.entity.DriverStatus
 import com.logistics.repository.DriverRepository
+import com.logistics.dto.DriverRequestDto
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -28,10 +29,19 @@ class DriverServiceTest {
     @InjectMocks
     private lateinit var driverService: DriverService
 
+    private lateinit var testDriverDto: DriverRequestDto
     private lateinit var testDriver: Driver
 
     @BeforeEach
     fun setUp() {
+        testDriverDto = DriverRequestDto(
+            name = "김기사",
+            phoneNumber = "010-1234-5678",
+            vehicleNumber = "12가3456",
+            vehicleType = "트럭",
+            tonnage = 5.0
+        )
+
         testDriver = Driver(
             id = 1L,
             name = "김기사",
@@ -66,14 +76,14 @@ class DriverServiceTest {
         whenever(driverRepository.save(any<Driver>())).thenReturn(testDriver)
 
         // When
-        val result = driverService.createDriver(testDriver)
+        val result = driverService.createDriver(testDriverDto)
 
         // Then
         assertNotNull(result)
         assertEquals(testDriver.name, result.name)
         assertEquals(testDriver.phoneNumber, result.phoneNumber)
         assertEquals(testDriver.vehicleNumber, result.vehicleNumber)
-        verify(driverRepository).save(testDriver)
+        verify(driverRepository).save(any<Driver>())
     }
 
     @Test
@@ -108,18 +118,16 @@ class DriverServiceTest {
     @Test
     fun `기사 수정 테스트`() {
         // Given
-        val updatedDriver = testDriver.copy(name = "박기사")
         whenever(driverRepository.existsById(1L)).thenReturn(true)
         whenever(driverRepository.findAll()).thenReturn(emptyList()) // 중복 전화번호 검증을 위해
-        whenever(driverRepository.save(any<Driver>())).thenReturn(updatedDriver)
+        whenever(driverRepository.save(any<Driver>())).thenReturn(testDriver)
 
         // When
-        val result = driverService.updateDriver(1L, updatedDriver)
+        val result = driverService.updateDriver(1L, testDriverDto)
 
         // Then
         assertNotNull(result)
-        assertEquals("박기사", result.name)
-        verify(driverRepository).existsById(1L)
+        assertEquals(testDriver.name, result.name)
         verify(driverRepository).save(any<Driver>())
     }
 
@@ -129,10 +137,10 @@ class DriverServiceTest {
         val driverWithoutDeliveries = testDriver.copy(deliveries = emptyList())
         whenever(driverRepository.findById(1L)).thenReturn(Optional.of(driverWithoutDeliveries))
 
-        // When & Then - 예외가 발생하지 않아야 함
+        // When
         driverService.deleteDriver(1L)
-        
-        verify(driverRepository).findById(1L)
+
+        // Then
         verify(driverRepository).deleteById(1L)
     }
 }

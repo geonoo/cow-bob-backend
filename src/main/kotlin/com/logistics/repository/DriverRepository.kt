@@ -3,31 +3,17 @@ package com.logistics.repository
 import com.logistics.entity.Driver
 import com.logistics.entity.DriverStatus
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Query
-import org.springframework.data.repository.query.Param
+import org.springframework.cache.annotation.Cacheable
+import org.springframework.cache.annotation.CacheEvict
 import java.time.LocalDate
 
-interface DriverRepository : JpaRepository<Driver, Long> {
+interface DriverRepository : JpaRepository<Driver, Long>, DriverRepositoryCustom {
+    @Cacheable(value = ["drivers"], key = "#status.name")
     fun findByStatus(status: DriverStatus): List<Driver>
     
-    @Query("""
-        SELECT d FROM Driver d 
-        WHERE d.status = 'ACTIVE' 
-        AND d.id NOT IN (
-            SELECT v.driver.id FROM Vacation v 
-            WHERE v.status = 'APPROVED' 
-            AND :date BETWEEN v.startDate AND v.endDate
-        )
-    """)
-    fun findAvailableDriversForDate(@Param("date") date: LocalDate): List<Driver>
+    @CacheEvict(value = ["drivers"], allEntries = true)
+    override fun <S : Driver> save(entity: S): S
     
-    @Query("""
-        SELECT d, COUNT(del.id) as deliveryCount 
-        FROM Driver d 
-        LEFT JOIN d.deliveries del 
-        WHERE d.status = 'ACTIVE' 
-        GROUP BY d.id 
-        ORDER BY deliveryCount ASC
-    """)
-    fun findDriversOrderByDeliveryCount(): List<Driver>
+    @CacheEvict(value = ["drivers"], allEntries = true)
+    override fun deleteById(id: Long)
 }

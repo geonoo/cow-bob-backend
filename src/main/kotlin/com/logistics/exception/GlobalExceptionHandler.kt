@@ -1,107 +1,89 @@
 package com.logistics.exception
 
-import java.time.LocalDateTime
-import org.springframework.http.HttpStatus
+import com.logistics.constant.ErrorInfo
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
-import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
+import java.time.LocalDateTime
 
-data class ErrorResponse(
-        val timestamp: LocalDateTime = LocalDateTime.now(),
-        val status: Int,
-        val error: String,
-        val message: String,
-        val path: String
-)
-
-@RestControllerAdvice
+@ControllerAdvice
 class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException::class)
-    fun handleResourceNotFoundException(
-            ex: ResourceNotFoundException,
-            request: WebRequest
-    ): ResponseEntity<ErrorResponse> {
-        val errorResponse =
-                ErrorResponse(
-                        status = HttpStatus.NOT_FOUND.value(),
-                        error = "Resource Not Found",
-                        message = ex.message ?: "요청한 리소스를 찾을 수 없습니다.",
-                        path = request.getDescription(false).removePrefix("uri=")
-                )
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse)
-    }
-
-    @ExceptionHandler(BusinessRuleViolationException::class)
-    fun handleBusinessRuleViolationException(
-            ex: BusinessRuleViolationException,
-            request: WebRequest
-    ): ResponseEntity<ErrorResponse> {
-        val errorResponse =
-                ErrorResponse(
-                        status = HttpStatus.BAD_REQUEST.value(),
-                        error = "Business Rule Violation",
-                        message = ex.message ?: "비즈니스 규칙을 위반했습니다.",
-                        path = request.getDescription(false).removePrefix("uri=")
-                )
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse)
+    fun handleResourceNotFoundException(ex: ResourceNotFoundException, request: WebRequest): ResponseEntity<ErrorResponse> {
+        return createErrorResponse(
+            ErrorInfo.RESOURCE_NOT_FOUND,
+            ex.message,
+            request
+        )
     }
 
     @ExceptionHandler(InvalidRequestException::class)
-    fun handleInvalidRequestException(
-            ex: InvalidRequestException,
-            request: WebRequest
-    ): ResponseEntity<ErrorResponse> {
-        val errorResponse =
-                ErrorResponse(
-                        status = HttpStatus.BAD_REQUEST.value(),
-                        error = "Invalid Request",
-                        message = ex.message ?: "잘못된 요청입니다.",
-                        path = request.getDescription(false).removePrefix("uri=")
-                )
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse)
+    fun handleInvalidRequestException(ex: InvalidRequestException, request: WebRequest): ResponseEntity<ErrorResponse> {
+        return createErrorResponse(
+            ErrorInfo.INVALID_REQUEST,
+            ex.message,
+            request
+        )
     }
 
-    @ExceptionHandler(AssignmentException::class)
-    fun handleAssignmentException(
-            ex: AssignmentException,
-            request: WebRequest
-    ): ResponseEntity<ErrorResponse> {
-        val errorResponse =
-                ErrorResponse(
-                        status = HttpStatus.CONFLICT.value(),
-                        error = "Assignment Error",
-                        message = ex.message ?: "배차 처리 중 오류가 발생했습니다.",
-                        path = request.getDescription(false).removePrefix("uri=")
-                )
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse)
+    @ExceptionHandler(BusinessRuleViolationException::class)
+    fun handleBusinessRuleViolationException(ex: BusinessRuleViolationException, request: WebRequest): ResponseEntity<ErrorResponse> {
+        return createErrorResponse(
+            ErrorInfo.BUSINESS_RULE_VIOLATION,
+            ex.message,
+            request
+        )
     }
 
     @ExceptionHandler(DataIntegrityException::class)
-    fun handleDataIntegrityException(
-            ex: DataIntegrityException,
-            request: WebRequest
-    ): ResponseEntity<ErrorResponse> {
-        val errorResponse =
-                ErrorResponse(
-                        status = HttpStatus.CONFLICT.value(),
-                        error = "Data Integrity Error",
-                        message = ex.message ?: "데이터 무결성 오류가 발생했습니다.",
-                        path = request.getDescription(false).removePrefix("uri=")
-                )
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse)
+    fun handleDataIntegrityException(ex: DataIntegrityException, request: WebRequest): ResponseEntity<ErrorResponse> {
+        return createErrorResponse(
+            ErrorInfo.DATA_INTEGRITY_ERROR,
+            ex.message,
+            request
+        )
+    }
+
+    @ExceptionHandler(AssignmentException::class)
+    fun handleAssignmentException(ex: AssignmentException, request: WebRequest): ResponseEntity<ErrorResponse> {
+        return createErrorResponse(
+            ErrorInfo.ASSIGNMENT_ERROR,
+            ex.message,
+            request
+        )
     }
 
     @ExceptionHandler(Exception::class)
     fun handleGenericException(ex: Exception, request: WebRequest): ResponseEntity<ErrorResponse> {
-        val errorResponse =
-                ErrorResponse(
-                        status = HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                        error = "Internal Server Error",
-                        message = "서버 내부 오류가 발생했습니다.",
-                        path = request.getDescription(false).removePrefix("uri=")
-                )
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse)
+        return createErrorResponse(
+            ErrorInfo.INTERNAL_SERVER_ERROR,
+            null,
+            request
+        )
+    }
+
+    private fun createErrorResponse(
+        errorInfo: ErrorInfo,
+        message: String?,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            timestamp = LocalDateTime.now(),
+            status = errorInfo.status.status.value(),
+            error = errorInfo.type.value,
+            message = message ?: errorInfo.defaultMessage,
+            path = request.getDescription(false)
+        )
+        return ResponseEntity.status(errorInfo.status.status).body(errorResponse)
     }
 }
+
+data class ErrorResponse(
+    val timestamp: LocalDateTime,
+    val status: Int,
+    val error: String,
+    val message: String,
+    val path: String
+)

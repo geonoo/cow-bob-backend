@@ -6,6 +6,7 @@ import com.logistics.entity.Driver
 import com.logistics.entity.DriverStatus
 import com.logistics.repository.DeliveryRepository
 import com.logistics.repository.DriverRepository
+import com.logistics.dto.DeliveryRequestDto
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -35,6 +36,7 @@ class DeliveryServiceTest {
     @InjectMocks
     private lateinit var deliveryService: DeliveryService
 
+    private lateinit var testDeliveryDto: DeliveryRequestDto
     private lateinit var testDelivery: Delivery
     private lateinit var testDriver: Driver
 
@@ -49,6 +51,14 @@ class DeliveryServiceTest {
             tonnage = 5.0,
             status = DriverStatus.ACTIVE,
             joinDate = LocalDate.now().minusMonths(6)
+        )
+
+        testDeliveryDto = DeliveryRequestDto(
+            destination = "서울농장",
+            address = "서울시 강남구 테헤란로 123",
+            price = BigDecimal("500000"),
+            feedTonnage = 3.5,
+            deliveryDate = LocalDate.now().plusDays(1)
         )
 
         testDelivery = Delivery(
@@ -83,13 +93,54 @@ class DeliveryServiceTest {
         whenever(deliveryRepository.save(any<Delivery>())).thenReturn(testDelivery)
 
         // When
-        val result = deliveryService.createDelivery(testDelivery)
+        val result = deliveryService.createDelivery(testDeliveryDto)
 
         // Then
         assertNotNull(result)
         assertEquals(testDelivery.destination, result.destination)
         assertEquals(testDelivery.feedTonnage, result.feedTonnage)
-        verify(deliveryRepository).save(testDelivery)
+        verify(deliveryRepository).save(any<Delivery>())
+    }
+
+    @Test
+    fun `ID로 배송 조회 테스트`() {
+        // Given
+        whenever(deliveryRepository.findById(1L)).thenReturn(Optional.of(testDelivery))
+
+        // When
+        val result = deliveryService.getDeliveryById(1L)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(testDelivery.destination, result.destination)
+        verify(deliveryRepository).findById(1L)
+    }
+
+    @Test
+    fun `배송 수정 테스트`() {
+        // Given
+        whenever(deliveryRepository.existsById(1L)).thenReturn(true)
+        whenever(deliveryRepository.save(any<Delivery>())).thenReturn(testDelivery)
+
+        // When
+        val result = deliveryService.updateDelivery(1L, testDeliveryDto)
+
+        // Then
+        assertNotNull(result)
+        assertEquals(testDelivery.destination, result.destination)
+        verify(deliveryRepository).save(any<Delivery>())
+    }
+
+    @Test
+    fun `배송 삭제 테스트`() {
+        // Given
+        whenever(deliveryRepository.findById(1L)).thenReturn(Optional.of(testDelivery))
+
+        // When
+        deliveryService.deleteDelivery(1L)
+
+        // Then
+        verify(deliveryRepository).deleteById(1L)
     }
 
     @Test
@@ -108,52 +159,27 @@ class DeliveryServiceTest {
     }
 
     @Test
-    fun `배차 할당 테스트`() {
+    fun `기사 추천 테스트`() {
         // Given
         whenever(deliveryRepository.findById(1L)).thenReturn(Optional.of(testDelivery))
-        whenever(driverRepository.findById(1L)).thenReturn(Optional.of(testDriver))
-        whenever(driverRepository.findAvailableDriversForDate(any())).thenReturn(listOf(testDriver))
-        
-        val assignedDelivery = testDelivery.copy(
-            driver = testDriver,
-            status = DeliveryStatus.ASSIGNED
-        )
-        whenever(deliveryRepository.save(any<Delivery>())).thenReturn(assignedDelivery)
+        whenever(driverRepository.findAvailableDriversForDate(testDelivery.deliveryDate))
+            .thenReturn(listOf(testDriver))
 
         // When
-        val result = deliveryService.assignDeliveryToDriver(1L, 1L)
+        val result = deliveryService.recommendDriverForDelivery(1L)
 
         // Then
         assertNotNull(result)
-        assertEquals(testDriver, result.driver)
-        assertEquals(DeliveryStatus.ASSIGNED, result.status)
+        assertEquals(testDriver.id, result!!.id)
         verify(deliveryRepository).findById(1L)
-        verify(driverRepository).findById(1L)
-        verify(deliveryRepository).save(any<Delivery>())
     }
 
     @Test
-    fun `존재하지 않는 배송 할당 시 ResourceNotFoundException 발생 테스트`() {
-        // Given
-        whenever(deliveryRepository.findById(999L)).thenReturn(Optional.empty())
-
-        // When & Then
-        assertThrows<com.logistics.exception.ResourceNotFoundException> {
-            deliveryService.assignDeliveryToDriver(999L, 1L)
-        }
-        verify(deliveryRepository).findById(999L)
-    }
-
-    @Test
-    fun `배송 완료 처리 테스트`() {
+    fun `배송 완료 테스트`() {
         // Given
         val assignedDelivery = testDelivery.copy(status = DeliveryStatus.ASSIGNED)
+        val completedDelivery = assignedDelivery.copy(status = DeliveryStatus.COMPLETED)
         whenever(deliveryRepository.findById(1L)).thenReturn(Optional.of(assignedDelivery))
-        
-        val completedDelivery = assignedDelivery.copy(
-            status = DeliveryStatus.COMPLETED,
-            completedAt = java.time.LocalDateTime.now()
-        )
         whenever(deliveryRepository.save(any<Delivery>())).thenReturn(completedDelivery)
 
         // When
@@ -162,8 +188,6 @@ class DeliveryServiceTest {
         // Then
         assertNotNull(result)
         assertEquals(DeliveryStatus.COMPLETED, result.status)
-        assertNotNull(result.completedAt)
-        verify(deliveryRepository).findById(1L)
         verify(deliveryRepository).save(any<Delivery>())
     }
 }

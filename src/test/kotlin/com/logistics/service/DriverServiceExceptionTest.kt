@@ -6,6 +6,7 @@ import com.logistics.entity.Driver
 import com.logistics.entity.DriverStatus
 import com.logistics.exception.*
 import com.logistics.repository.DriverRepository
+import com.logistics.dto.DriverRequestDto
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -30,11 +31,20 @@ class DriverServiceExceptionTest {
     @InjectMocks
     private lateinit var driverService: DriverService
 
+    private lateinit var validDriverDto: DriverRequestDto
     private lateinit var validDriver: Driver
     private lateinit var driverWithDeliveries: Driver
 
     @BeforeEach
     fun setUp() {
+        validDriverDto = DriverRequestDto(
+            name = "김기사",
+            phoneNumber = "010-1234-5678",
+            vehicleNumber = "12가3456",
+            vehicleType = "트럭",
+            tonnage = 5.0
+        )
+
         validDriver = Driver(
             id = 1L,
             name = "김기사",
@@ -83,7 +93,7 @@ class DriverServiceExceptionTest {
 
         // When & Then
         val exception = assertThrows<ResourceNotFoundException> {
-            driverService.updateDriver(999L, validDriver)
+            driverService.updateDriver(999L, validDriverDto)
         }
         assertEquals("ID가 999 인 기사를 찾을 수 없습니다.", exception.message)
     }
@@ -105,11 +115,11 @@ class DriverServiceExceptionTest {
     @Test
     fun `빈 이름으로 기사 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDriver = validDriver.copy(name = "")
+        val invalidDriverDto = validDriverDto.copy(name = "")
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            driverService.createDriver(invalidDriver)
+            driverService.createDriver(invalidDriverDto)
         }
         assertEquals("기사 이름은 필수 입력 항목입니다.", exception.message)
     }
@@ -117,11 +127,11 @@ class DriverServiceExceptionTest {
     @Test
     fun `빈 전화번호로 기사 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDriver = validDriver.copy(phoneNumber = "")
+        val invalidDriverDto = validDriverDto.copy(phoneNumber = "")
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            driverService.createDriver(invalidDriver)
+            driverService.createDriver(invalidDriverDto)
         }
         assertEquals("전화번호는 필수 입력 항목입니다.", exception.message)
     }
@@ -129,11 +139,11 @@ class DriverServiceExceptionTest {
     @Test
     fun `잘못된 전화번호 형식으로 기사 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDriver = validDriver.copy(phoneNumber = "010-12345-678") // 잘못된 형식
+        val invalidDriverDto = validDriverDto.copy(phoneNumber = "010-12345-678") // 잘못된 형식
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            driverService.createDriver(invalidDriver)
+            driverService.createDriver(invalidDriverDto)
         }
         assertEquals("올바른 전화번호 형식이 아닙니다.", exception.message)
     }
@@ -141,11 +151,11 @@ class DriverServiceExceptionTest {
     @Test
     fun `빈 차량번호로 기사 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDriver = validDriver.copy(vehicleNumber = "")
+        val invalidDriverDto = validDriverDto.copy(vehicleNumber = "")
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            driverService.createDriver(invalidDriver)
+            driverService.createDriver(invalidDriverDto)
         }
         assertEquals("차량번호는 필수 입력 항목입니다.", exception.message)
     }
@@ -153,11 +163,11 @@ class DriverServiceExceptionTest {
     @Test
     fun `빈 차량종류로 기사 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDriver = validDriver.copy(vehicleType = "")
+        val invalidDriverDto = validDriverDto.copy(vehicleType = "")
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            driverService.createDriver(invalidDriver)
+            driverService.createDriver(invalidDriverDto)
         }
         assertEquals("차량종류는 필수 입력 항목입니다.", exception.message)
     }
@@ -165,26 +175,25 @@ class DriverServiceExceptionTest {
     @Test
     fun `음수 톤수로 기사 생성 시 InvalidRequestException 발생`() {
         // Given
-        val invalidDriver = validDriver.copy(tonnage = -1.0)
+        val invalidDriverDto = validDriverDto.copy(tonnage = -1.0)
 
         // When & Then
         val exception = assertThrows<InvalidRequestException> {
-            driverService.createDriver(invalidDriver)
+            driverService.createDriver(invalidDriverDto)
         }
         assertEquals("톤수는 0보다 커야 합니다.", exception.message)
     }
 
-    @Test
-    fun `미래 가입일로 기사 생성 시 InvalidRequestException 발생`() {
-        // Given
-        val invalidDriver = validDriver.copy(joinDate = LocalDate.now().plusDays(1))
-
-        // When & Then
-        val exception = assertThrows<InvalidRequestException> {
-            driverService.createDriver(invalidDriver)
-        }
-        assertEquals("가입일은 오늘 이전이어야 합니다.", exception.message)
-    }
+    // @Test
+    // fun `미래 가입일로 기사 생성 시 InvalidRequestException 발생`() {
+    //     // Given
+    //     // joinDate는 DriverRequestDto에 없으므로 이 테스트는 제거
+    //     // When & Then
+    //     val exception = assertThrows<InvalidRequestException> {
+    //         driverService.createDriver(invalidDriverDto)
+    //     }
+    //     assertEquals("가입일은 오늘 이전이어야 합니다.", exception.message)
+    // }
 
     // ========== BusinessRuleViolationException 테스트 ==========
 
@@ -196,7 +205,7 @@ class DriverServiceExceptionTest {
 
         // When & Then
         val exception = assertThrows<BusinessRuleViolationException> {
-            driverService.createDriver(validDriver)
+            driverService.createDriver(validDriverDto)
         }
         assertEquals("이미 등록된 전화번호입니다.", exception.message)
     }
@@ -210,11 +219,11 @@ class DriverServiceExceptionTest {
         whenever(driverRepository.existsById(1L)).thenReturn(true)
         whenever(driverRepository.findAll()).thenReturn(listOf(existingDriver, anotherDriver))
 
-        val updatedDriver = validDriver.copy(phoneNumber = "010-1234-5678") // 다른 기사와 중복
+        val updatedDriverDto = validDriverDto.copy(phoneNumber = "010-1234-5678") // 다른 기사와 중복
 
         // When & Then
         val exception = assertThrows<BusinessRuleViolationException> {
-            driverService.updateDriver(1L, updatedDriver)
+            driverService.updateDriver(1L, updatedDriverDto)
         }
         assertEquals("이미 등록된 전화번호입니다.", exception.message)
     }
@@ -241,7 +250,7 @@ class DriverServiceExceptionTest {
 
         // When & Then
         val exception = assertThrows<DataIntegrityException> {
-            driverService.createDriver(validDriver)
+            driverService.createDriver(validDriverDto)
         }
         assertTrue(exception.message!!.contains("기사 생성 중 오류가 발생했습니다"))
     }
@@ -255,7 +264,7 @@ class DriverServiceExceptionTest {
 
         // When & Then
         val exception = assertThrows<DataIntegrityException> {
-            driverService.updateDriver(1L, validDriver)
+            driverService.updateDriver(1L, validDriverDto)
         }
         assertTrue(exception.message!!.contains("기사 수정 중 오류가 발생했습니다"))
     }
@@ -292,10 +301,10 @@ class DriverServiceExceptionTest {
         )
 
         invalidPhoneNumbers.forEach { phoneNumber ->
-            val invalidDriver = validDriver.copy(phoneNumber = phoneNumber)
+            val invalidDriverDto = validDriverDto.copy(phoneNumber = phoneNumber)
             
             val exception = assertThrows<InvalidRequestException> {
-                driverService.createDriver(invalidDriver)
+                driverService.createDriver(invalidDriverDto)
             }
             
             assertTrue(
@@ -319,12 +328,12 @@ class DriverServiceExceptionTest {
         )
 
         validPhoneNumbers.forEach { phoneNumber ->
-            val driver = validDriver.copy(phoneNumber = phoneNumber)
+            val driverDto = validDriverDto.copy(phoneNumber = phoneNumber)
             whenever(driverRepository.findAll()).thenReturn(emptyList())
-            whenever(driverRepository.save(any<Driver>())).thenReturn(driver)
+            whenever(driverRepository.save(any<Driver>())).thenReturn(validDriver.copy(phoneNumber = phoneNumber))
 
             // When & Then - 예외가 발생하지 않아야 함
-            val result = driverService.createDriver(driver)
+            val result = driverService.createDriver(driverDto)
             assertEquals(phoneNumber, result.phoneNumber)
         }
     }
