@@ -1,5 +1,6 @@
 package com.logistics.entity
 
+import com.fasterxml.jackson.annotation.JsonBackReference
 import jakarta.persistence.*
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -29,6 +30,7 @@ data class Delivery(
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "driver_id")
+    @JsonBackReference
     val driver: Driver? = null,
     
     @Enumerated(EnumType.STRING)

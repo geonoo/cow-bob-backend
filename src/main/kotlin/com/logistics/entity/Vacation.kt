@@ -1,5 +1,6 @@
 package com.logistics.entity
 
+import com.fasterxml.jackson.annotation.JsonBackReference
 import jakarta.persistence.*
 import java.time.LocalDate
 
@@ -12,6 +13,7 @@ data class Vacation(
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "driver_id", nullable = false)
+    @JsonBackReference
     val driver: Driver,
     
     @Column(nullable = false)

@@ -1,5 +1,6 @@
 package com.logistics.entity
 
+import com.fasterxml.jackson.annotation.JsonManagedReference
 import jakarta.persistence.*
 import java.time.LocalDate
 
@@ -33,9 +34,11 @@ data class Driver(
     val joinDate: LocalDate = LocalDate.now(),
     
     @OneToMany(mappedBy = "driver", cascade = [CascadeType.ALL])
+    @JsonManagedReference
     val vacations: List<Vacation> = emptyList(),
     
     @OneToMany(mappedBy = "driver", cascade = [CascadeType.ALL])
+    @JsonManagedReference
     val deliveries: List<Delivery> = emptyList()
 )
 
